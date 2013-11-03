@@ -1,11 +1,13 @@
 Title: OpenStack Networking Training - Course Manual<br>
-Author: Rhys Oxenham <roxenham@redhat.com><br>
+Author: Rhys Oxenham - <roxenham@redhat.com><br>
 Date: November 2013
 
 #**Course Contents**#
 
 1. **Configuring your host machine for OpenStack**
-2. **Deploying virtual-machine instances as base infrastructure**
+2. **Deploying Virtual Machines as OpenStack nodes**
+3. **Installing OpenStack with Packstack**
+4. **Exploring the 
 
 
 <!--BREAK-->
@@ -108,14 +110,171 @@ If this is not present as above (with the exception of a different uuid), it's r
 	# virsh net-destroy default && virsh net-undefine default
 	# virsh net-define /usr/share/libvirt/networks/default.xml
 	# virsh net-start default
+	# virsh net-autostart default
+	
+Next, create the "isolated network", i.e. the one that we'll use for our tenant networks to run on (will be explained later):
+
+	# cat >> /tmp/isolated.xml << EOF
+	  <network>
+        <name>isolated</name>
+     </network>
+	 EOF
+	
+	# virsh net-start isolated
+	# virsh net-autostart isolated
 
 Ensure that the bridge is setup correctly on the host:
 
 	# brctl show
 	...
 	virbr0		8000.5254005a0a54	yes		virbr0-nic
-
-	# virsh net-info default
+	virbr1		8000.525400bd15a3	yes		virbr1-nic
+	# virsh net-info default && virsh net-info isolated
 	(See above for correct output)
 
 
+#**Lab 2: Deploying virtual machines as OpenStack nodes**
+
+**Prerequisites:**
+* A physical machine configured with a NAT'd network allocated for hosting virtual machines as well as an isolated vSwitch network
+
+**Tools used:**
+* virt command-line tools (e.g. virsh, virt-install, virt-viewer)
+
+##**Introduction**
+
+OpenStack is made up of a number of distinct components, each having their role in making up a cloud. It's certainly possible to have one single machine (either physical or virtual) providing all of the functions, or a complete OpenStack cloud contained within itself. This, however, doesn't provide any form of high availability/resilience and doesn't make efficient use of resources. Therefore, in a typical deployment, multiple machines will be used, each running a set of components that connect to each other via their open API's. When we look at OpenStack there are two main 'roles' for a machine within the cluster, a 'cloud controller' and a 'compute node'. A 'cloud controller' is responsible for orchestration of the cloud, responsibilities include scheduling of instances, running self-service portals, providing rich API's and operating a database store. Whilst a 'compute node' is actually very simple, it's main responsibility is to provide compute resource to the cluster and to accept requests to start instances.
+
+This guide walks you through setting up two machines, one will be the "cloud controller" but will also be our "networking node", i.e. the machine that runs the Neutron server and acts as a gateway to the outside world and the second machine as a dedicated compute host. This section of the guide will quickly provision these machines using Packstack, the OpenStack PoC deployment tool for Red Hat based platforms (https://wiki.openstack.org/wiki/Packstack).
+
+Estimated completion time: 30 minutes
+
+
+##**Preparing the base content**
+
+Assuming that you have a RHEL 6 x86_64 DVD iso available locally, you'll need to provide it for the installation. Alternatively, if you want to install via the network you can do so by using the '--location http://<path to installation tree>' tag within virt-install.
+
+To save time, we'll install a single virtual machine and just clone it afterwards, that way they're all identical. If you're following this guide with pre-build RHEL (or CentOS/Scientific Linux) images, you can skip the DVD install stages.
+
+##**Without pre-build images**
+
+Only do this if you *don't* have the pre-built images...
+
+	# virt-install --name openstack-controller --ram 2000 --file /var/lib/libvirt/images/openstack-controller.img \
+		--cdrom /path/to/dvd.iso --noautoconsole --vnc --file-size 30  --vcpus=2 \
+		--os-variant rhel6 --network network:default,mac=52:54:00:00:00:01 --network network:isolated
+	# virt-viewer openstack-controller
+
+I would advise that you choose a basic or minimal installation option and don't install any window managers, as these are virtual machines we want to keep as much resource as we can available, plus a graphical view is not required. Partition layouts can be set to default at this stage also, just make sure the time-zone is set correctly and that you provide a root password. When asked for a hostname, I suggest you don't use anything unique, just specify "server" or "node" as we will be cloning.
+
+After the machine has finished installing it will automatically be shut-down, we have to 'sysprep' it to make sure that it's ready to be cloned, this removes any "hardware"-specific elements so that things like networking come up as if they were created individually. In addition, one step ensures that networking comes up at boot time which it won't do by default if it wasn't chosen in the installer.
+
+	# yum install libguestfs-tools -y && virt-sysprep -d openstack-controller
+	...
+
+	# virt-edit -d openstack-controller /etc/sysconfig/network-scripts/ifcfg-eth0 -e 's/^ONBOOT=.*/ONBOOT="yes"/'
+	
+	# virt-clone -o openstack-controller -n openstack-compute -f /var/lib/libvirt/images/openstack-compute.img --mac 52:54:00:00:00:02
+	Allocating 'openstack-compute.img'
+
+	Clone 'openstack-compute1' created successfully.
+	
+##**With pre-built images**
+
+If you have the pre-build RHEL 6 (or CentOS/Scientific Linux) images then you'll just need to import them. Note that the images should ideally have package repositories set-up, this guide assumes that you do:
+
+	# yum install libguestfs-tools -y
+	# virt-install --name openstack-controller --ram 2000 --os-variant rhel6 --noautoconsole --vnc \
+		--disk /path/to/rhel6-template.qcow2,device=disk,bus=virtio,format=qcow2 \
+		--network network:default,mac=52:54:00:00:00:01	--network network:isolated --import
+	
+	# virsh shutdown openstack-controller
+	# virt-clone -o openstack-controller -n openstack-compute -f /var/lib/libvirt/images/openstack-compute.img --mac 52:54:00:00:00:02
+
+##**Final clean up**
+
+As an *optional* step for convenience, we can leave the virtual machines as DHCP and manually configure the 'default' network within libvirt to present static addresses via DHCP. As we have manually assigned the MAC addresses for our virtual machines we can edit the default network configuration file as follows-
+
+	# virsh net-destroy default
+	# virsh net-edit default
+
+	... change the following section...
+
+  	<ip address='192.168.122.1' netmask='255.255.255.0'>
+    		<dhcp>
+      			<range start='192.168.122.2' end='192.168.122.254' />
+    		</dhcp>
+  	</ip>
+
+	...to this...
+
+  	<ip address='192.168.122.1' netmask='255.255.255.0'>
+    		<dhcp>
+      			<range start='192.168.122.2' end='192.168.122.9' />
+	      		<host mac='52:54:00:00:00:01' name='openstack-controller' ip='192.168.122.101' />
+      			<host mac='52:54:00:00:00:02' name='openstack-compute' ip='192.168.122.102' />
+    		</dhcp>
+  	</ip>
+
+	(Use 'i' to edit and when finished press escape and ':wq!')
+
+Then, to save changes, run:
+
+	# virsh net-start default
+
+For ease of connection to your virtual machine instances, it would be prudent to add the machines to your /etc/hosts file-
+
+	# cat >> /etc/hosts <<EOF
+	192.168.122.101 openstack-controller
+	192.168.122.102 openstack-compute
+	EOF
+
+Finally, start your virtual machines that'll be used in the next lab:
+
+	# virsh start openstack-controller
+	# virsh start openstack-compute
+	
+#**Lab 3: Installing OpenStack with Packstack**
+
+**Prerequisites:**
+* Two running virtual machines with virtual networks attached
+
+**Tools used:**
+* ssh
+* OpenStack Packstack
+
+##**Introduction**
+
+Packstack is a utility that uses Puppet modules to deploy various parts of OpenStack on multiple pre-installed servers over SSH automatically. Currently only Fedora, Red Hat Enterprise Linux (RHEL) and compatible derivatives are supported.
+
+As this training guide is not about OpenStack in general, we'll use a pre-packaged answer file to build out a known configuration so that the rest of the networking steps work as expected.
+
+Estimated completion time: 35 minutes
+
+
+##**Installing Packstack**
+
+Firstly, connect into your first machine:
+
+	# ssh root@openstack-controller
+
+This guide assumes that you've already got the required repositories configured. 
+
+	# yum install openstack-packstack facter -y
+
+Download the pre-configured answers file from the git repository and make the necessary adjustments:
+
+	# wget http://raw.github.com/rdoxenham/openstack-networking/extras/answers.txt
+	# IPADDR=$(facter | grep -m1 ipaddress | awk '{print $3};')
+	# sed -i s/changeme/$IPADDR/g answers.txt
+	
+Then, execute Packstack with the answer file as a paramater. Note that you'll have to watch the output as it will ask you for root passwords:
+	
+	# packstack --answer-file=answers.txt
+	
+Once completed, reboot the machines as they'll need to be running a specific OpenStack-enabled kernel:
+
+	(return to your host machine)
+	# virsh reboot openstack-controller
+	# virsh reboot openstack-compute
+	
