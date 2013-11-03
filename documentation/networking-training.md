@@ -285,7 +285,7 @@ Once completed, reboot the machines as they'll need to be running a specific Ope
 	
 ##**So what has been installed for us?**
 
-Packstack has configured the following services-
+Packstack has configured the following-
 
 * Keystone - Authentication and authorisation
 * Glance - Image repository
@@ -293,5 +293,6 @@ Packstack has configured the following services-
 * Nova - Compute
 * Horizon - OpenStack dashboard
 * MySQL and Qpid - Supporting infrastructure services
+* Created an Admin user and provided a 'source' file in /root
 
-In addition, it's installed and partly configured Quantum for us. 
+In addition, it's installed and partly configured Quantum for us. Let's take a look in more depth in the next chapter.
