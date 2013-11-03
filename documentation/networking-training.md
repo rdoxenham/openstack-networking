@@ -59,6 +59,7 @@ Note that I explicitly mentioned "routing" there as a major component, when usin
 
 We're going to be configuring two virtual machines on-top of a Linux-based (ideally) hypervisor, we'll then use automated mechanisms for deploying a test-bed OpenStack environment and will build up our understanding of OpenStack networking by implementing both tenant networks (with routing) and provider networks.
 
+Note: This course was written for Red Hat Enterprise Linux OpenStack Platform 3.0 (based on Grizzly), hence 'Quantum' is still in use. This guide will be updated for Havana when Red Hat release the updated packages, at which point the commands will start with 'neutron' rather than 'quantum'.
 <!--BREAK-->
 
 #**Lab 1: Configuring your host machine for OpenStack**
@@ -264,11 +265,15 @@ This guide assumes that you've already got the required repositories configured.
 
 Download the pre-configured answers file from the git repository and make the necessary adjustments:
 
-	# wget http://raw.github.com/rdoxenham/openstack-networking/extras/answers.txt
+	# wget https://raw.github.com/rdoxenham/openstack-networking/master/extras/answers.txt
 	# IPADDR=$(facter | grep -m1 ipaddress | awk '{print $3};')
 	# sed -i s/changeme/$IPADDR/g answers.txt
 	
-Then, execute Packstack with the answer file as a paramater. Note that you'll have to watch the output as it will ask you for root passwords:
+Make sure that we tell Packstack to configure our second machine as a compute host:	
+
+	# sed -i s/CONFIG_NOVA_COMPUTE_HOSTS=.*/CONFIG_NOVA_COMPUTE_HOSTS=192.168.122.101,192.168.122.102/g answers.txt
+	
+Then, execute Packstack with the answer file as a paramater. Note that you'll have to watch the output as it will ask you for root passwords. Before you execute this step it would be prudent to ensure that package repositories are configured correctly on BOTH nodes:
 	
 	# packstack --answer-file=answers.txt
 	
@@ -278,3 +283,15 @@ Once completed, reboot the machines as they'll need to be running a specific Ope
 	# virsh reboot openstack-controller
 	# virsh reboot openstack-compute
 	
+##**So what has been installed for us?**
+
+Packstack has configured the following services-
+
+* Keystone - Authentication and authorisation
+* Glance - Image repository
+* Cinder - Block storage
+* Nova - Compute
+* Horizon - OpenStack dashboard
+* MySQL and Qpid - Supporting infrastructure services
+
+In addition, it's installed and partly configured Quantum for us. 
