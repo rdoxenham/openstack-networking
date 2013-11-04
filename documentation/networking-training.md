@@ -7,7 +7,13 @@ Date: November 2013
 1. **Configuring your host machine for OpenStack**
 2. **Deploying Virtual Machines as OpenStack nodes**
 3. **Installing OpenStack with Packstack**
-4. **Exploring the 
+4. **Exploring the new environment**
+5. **Configuring the Open vSwitch Plugin**
+6. **Creating Networks**
+7. **Launching Instances**
+8. **Creating External Networks**
+9. **Managing Floating IP's**
+10. **Connecting into Instances**
 
 
 <!--BREAK-->
@@ -274,12 +280,17 @@ Download the pre-configured answers file from the git repository and make the ne
 	
 Make sure that we tell Packstack to configure our second machine as a compute host:	
 
-	# sed -i s/CONFIG_NOVA_COMPUTE_HOSTS=.*/CONFIG_NOVA_COMPUTE_HOSTS=192.168.122.101,192.168.122.102/g answers.txt
+	# sed -i s/CONFIG_NOVA_COMPUTE_HOSTS=.*/CONFIG_NOVA_COMPUTE_HOSTS=192.168.122.102/g answers.txt
 	
 Then, execute Packstack with the answer file as a paramater. Note that you'll have to watch the output as it will ask you for root passwords. Before you execute this step it would be prudent to ensure that package repositories are configured correctly on BOTH nodes. Also, run this in screen so that you don't accidentally lose your SSH session:
 	
 	# screen
 	# packstack --answer-file=answers.txt
+	
+At the time of writing this guide, tunnel networks (which we'll configure in a later chapter) are not currently supported, the packages are available though. On each host:
+
+	# wget http://repos.fedorapeople.org/repos/openstack/openstack-grizzly/epel-6/openvswitch-1.11.0_8ce28d-1.el6ost.x86_64.rpm
+	# yum localinstall openvswitch-1.11.0_8ce28d-1.el6ost.x86_64.rpm -y
 	
 Once completed, reboot the machines as they'll need to be running a specific OpenStack-enabled kernel:
 
@@ -300,3 +311,22 @@ Packstack has configured the following-
 * Created an Admin user and provided a 'source' file in /root
 
 In addition, it's installed and partly configured Quantum for us. Let's take a look in more depth in the next chapter.
+
+#**Lab 4: Exploring the new environment**
+
+**Prerequisites:**
+* Two running virtual machines with virtual networks attached
+
+**Tools used:**
+* ssh
+* OpenStack Packstack
+
+##**Introduction**
+
+4. **Exploring the new environment**
+5. **Configuring the Open vSwitch Plugin**
+6. **Creating Networks**
+7. **Launching Instances**
+8. **Creating External Networks**
+9. **Managing Floating IP's**
+10. **Connecting into Instances**
