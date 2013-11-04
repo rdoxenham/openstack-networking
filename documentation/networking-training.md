@@ -308,25 +308,39 @@ Packstack has configured the following-
 * Nova - Compute
 * Horizon - OpenStack dashboard
 * MySQL and Qpid - Supporting infrastructure services
-* Created an Admin user and provided a 'source' file in /root
+* Created an Admin user and provided a 'source' file in /root (keystonerc_admin)
 
 In addition, it's installed and partly configured Quantum for us. Let's take a look in more depth in the next chapter.
 
+
 #**Lab 4: Exploring the new environment**
-
-**Prerequisites:**
-* Two running virtual machines with virtual networks attached
-
-**Tools used:**
-* ssh
-* OpenStack Packstack
 
 ##**Introduction**
 
-4. **Exploring the new environment**
-5. **Configuring the Open vSwitch Plugin**
-6. **Creating Networks**
-7. **Launching Instances**
-8. **Creating External Networks**
-9. **Managing Floating IP's**
-10. **Connecting into Instances**
+#**Lab 5: Configuring the Open vSwitch Plugin**
+
+##**Introduction**
+
+#**Lab 6: Creating Networks**
+
+##**Introduction**
+
+#**Lab 7: Launching Instances**
+
+##**Introduction**
+
+#**Lab 8: Creating External Networks**
+
+##**Introduction**
+
+#**Lab 9: Managing Floating IP's**
+
+##**Introduction**
+
+#**Lab 10: Connecting into Instances**
+
+##**Introduction**
+
+##**Security Groups**
+
+##**Secure Shell Keys**
