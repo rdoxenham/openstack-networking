@@ -119,8 +119,9 @@ Next, create the "isolated network", i.e. the one that we'll use for our tenant 
 	  <network>
         <name>isolated</name>
      </network>
-	 EOF
-	
+	EOF
+
+	# virsh net-define /tmp/isolated.xml
 	# virsh net-start isolated
 	# virsh net-autostart isolated
 
