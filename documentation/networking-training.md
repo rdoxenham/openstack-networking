@@ -317,6 +317,77 @@ In addition, it's installed and partly configured Quantum for us. Let's take a l
 
 ##**Introduction**
 
+In this lab we'll go through the basics of the OpenStack deployment, what Packstack installed for us and what we will need to do further. The answer file that was provided to you as part of this guide is relatively basic, it installs all of the main OpenStack components onto the 'controller' node which is responsible for coordinating the environment and installs the nova-compute service onto the second machine, i.e. the one that will 'do the work' of running instances (virtual machines). 
+
+As Open vSwitch is the default L2 plugin within Red Hat Enterprise Linux OpenStack Platform (or derivatives), Packstack deploys Open vSwitch across all of the nodes that require it, i.e. any node that either runs instances or runs additional network services (e.g. the network controller). As stated in the introductory sections of this guide, Neutron (or Quantum in OpenStack Grizzly) simply stores an abstract/logical representation of defined networks and relies on plugins and agents to implement the topologies "in real life". Open vSwitch agents are responsible for taking commands from Neutron and implementing them on the local machine whilst additional services such as the DHCP or L3 agent provide additional functionality for the networks configured (although are completely optional).
+
+##**Basic Commands**
+
+In root's home directory, Packstack places a 'source' file, i.e. one that stores environment variables that we can use with the OpenStack command-line utilities; it saves us having to pass usernames, passwords and service locations as parameters. For everything we need to do within the environment and every command we need to be authenticated, therefore it's a lot quicker and easier with a source file:
+
+	# ssh root@openstack-controller
+	
+	# cat /root/keystonerc_admin
+	export OS_USERNAME=admin
+	export OS_TENANT_NAME=admin
+	export OS_PASSWORD=redhat
+	export OS_AUTH_URL=http://192.168.122.101:35357/v2.0/
+	export PS1='[\u@\h \W(keystone_admin)]\$ '
+	
+What this tells us is that upon 'usage' of this file it exports a number of environment variables, a username, a password, a tenant (i.e. which project I belong to or want to invoke) and finally the location of Keystone. Note that Keystone really does piece together all of the other components by providing a catalog of services, i.e. the API endpoint or service location of each of the other services, therefore you need only know how to contact Keystone to be able to use OpenStack.
+
+To make use of the source file:
+
+	# source /root/keystonerc_admin
+	
+You'll now be able to invoke OpenStack commands as the 'admin' user. Note that this user has the in-built 'admin' role, in which the Keystone policy allows to do certain administrative operations, by default any other user created will *not* have this role.
+
+A good start would be to check the services that Packstack has installed for us:
+
+	# keystone service-list
+	+----------------------------------+----------+----------+----------------------------+
+	|                id                |   name   |   type   |        description         |
+	+----------------------------------+----------+----------+----------------------------+
+	| 7518cce215304542892c7b9c5431bd0b |  cinder  |  volume  |       Cinder Service       |
+	| 48323c5005f9403aa513611ffe038631 |  glance  |  image   |  Openstack Image Service   |
+	| 860960f2b6544fc882cfb75973086e91 | keystone | identity | OpenStack Identity Service |
+	| e246a2a45d3e446ca6013b02166adbd7 |   nova   | compute  | Openstack Compute Service  |
+	| bbd96e91fe1849ae94c6b2ebb28a2cbd | nova_ec2 |   ec2    |        EC2 Service         |
+	| 577f2c69da3d4939a9d26f4f66b5eb79 | quantum  | network  | Quantum Networking Service |
+	+----------------------------------+----------+----------+----------------------------+
+	
+We'll use Keystone later to configure a new tenant for us to launch private instances in our own tenant networks later on. For now, let's check out the current network configuration.
+
+We've configured Packstack (in the answer file) to not actually create any networks for us - this guide will explain how to do this manually. As such, the configuration files are minimally altered and the Open vSwitch bridge layout is bare:
+
+	# ovs-vsctl show
+	1b881294-4c0c-4ae8-a885-64ed35170a9e
+    Bridge br-ex
+        Port br-ex
+            Interface br-ex
+                type: internal
+    Bridge br-int
+        Port br-int
+            Interface br-int
+                type: internal
+    ovs_version: "1.11.0"
+    
+What does this tell us? Well, for starters, it's got an entry for two bridges. Firstly, "br-ex" is an external bridge in which we can configure external access for our instances but also inbound access from the outside to our tenant networks via floating IP's. In addition, it's created "br-int", the "integration bridge" in which all LOCAL ports connect into, e.g. virtual machines if this was a compute node, or as this is only a controller the Quantum DHCP and L3 agents would plug in here. The compute node will only have an integration bridge as it's not responsible for routing externally.
+
+We can also view which agents are running across our environment:
+
+	# quantum agent-list
+	+--------------------------------------+--------------------+----------------------+-------+----------------+
+	| id                                   | agent_type         | host                 | alive | admin_state_up |
+	+--------------------------------------+--------------------+----------------------+-------+----------------+
+	| 17b3ddf0-7a49-42aa-9763-c1a687cadb68 | Open vSwitch agent | openstack-controller | :-)   | True           |
+	| d370c0ab-619c-4d47-865f-27cdc6860d55 | L3 agent           | openstack-controller | :-)   | True           |
+	| e0d135bd-176d-447b-be13-c082a60b2241 | DHCP agent         | openstack-controller | :-)   | True           |
+	| eef9535a-3b8c-4550-99b3-4f2fccde5929 | Open vSwitch agent | openstack-compute    | :-)   | True           |
+	+--------------------------------------+--------------------+----------------------+-------+----------------+
+
+This tells us that whilst the Open vSwitch agent runs on both machines, only the 'openstack-controller' node runs the DHCP and L3 agents, as expected.
+
 #**Lab 5: Configuring the Open vSwitch Plugin**
 
 ##**Introduction**
