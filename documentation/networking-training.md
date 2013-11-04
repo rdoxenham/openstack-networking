@@ -110,7 +110,40 @@ If this is not present as above (with the exception of a different uuid), it's r
 	# mkdir -p /root/libvirt-backup/ && mv /var/lib/libvirt/network/default.xml /root/libvirt-backup/
 	# virsh net-destroy default && virsh net-undefine default
 	# virsh net-define /usr/share/libvirt/networks/default.xml
+	# virsh net-edit default
+
+	... change the following section...
+
+  	<ip address='192.168.122.1' netmask='255.255.255.0'>
+    		<dhcp>
+      			<range start='192.168.122.2' end='192.168.122.254' />
+    		</dhcp>
+  	</ip>
+
+	...to this...
+
+  	<ip address='192.168.122.1' netmask='255.255.255.0'>
+    		<dhcp>
+      			<range start='192.168.122.2' end='192.168.122.9' />
+	      		<host mac='52:54:00:00:00:01' name='openstack-controller' ip='192.168.122.101' />
+      			<host mac='52:54:00:00:00:02' name='openstack-compute' ip='192.168.122.102' />
+    		</dhcp>
+  	</ip>
+
+	(Use 'i' to edit and when finished press escape and ':wq!')
+
+Then, to save changes, run:
+
 	# virsh net-start default
+	# virsh net-autostart default
+
+For ease of connection to your virtual machine instances, it would be prudent to add the machines to your /etc/hosts file-
+
+	# cat >> /etc/hosts <<EOF
+	192.168.122.101 openstack-controller
+	192.168.122.102 openstack-compute
+	EOF
+
 	# virsh net-autostart default
 	
 Next, create the "isolated network", i.e. the one that we'll use for our tenant networks to run on (will be explained later):
@@ -186,53 +219,22 @@ After the machine has finished installing it will automatically be shut-down, we
 If you have the pre-build RHEL 6 (or CentOS/Scientific Linux) images then you'll just need to import them. Note that the images should ideally have package repositories set-up, this guide assumes that you do:
 
 	# yum install libguestfs-tools -y
+	# cp /path/to/rhel6-template.qcow2 /var/lib/libvirt/images/openstack-controller-nonsparse.qcow2
+	# virt-sparsify /var/lib/libvirt/images/openstack-controller-nonsparse.qcow2 /var/lib/libvirt/images/openstack-controller.qcow2
 	# virt-install --name openstack-controller --ram 2000 --os-variant rhel6 --noautoconsole --vnc \
-		--disk /path/to/rhel6-template.qcow2,device=disk,bus=virtio,format=qcow2 \
+		--disk /var/lib/libvirt/images/openstack-controller.qcow2,device=disk,bus=virtio,format=qcow2 \
 		--network network:default,mac=52:54:00:00:00:01	--network network:isolated --import
-	
+
+Wait for the system to successfully boot up, then clone and prepare the machine...
+
 	# virsh shutdown openstack-controller
 	# virt-clone -o openstack-controller -n openstack-compute -f /var/lib/libvirt/images/openstack-compute.img --mac 52:54:00:00:00:02
+	# virt-sysprep -d openstack-compute
+	# virt-edit -d openstack-compute /etc/sysconfig/network-scripts/ifcfg-eth0 -e 's/^ONBOOT=.*/ONBOOT="yes"/'
 
-##**Final clean up**
+Finally, start your virtual machines that'll be used in the next lab and clean-up the temporary file:
 
-As an *optional* step for convenience, we can leave the virtual machines as DHCP and manually configure the 'default' network within libvirt to present static addresses via DHCP. As we have manually assigned the MAC addresses for our virtual machines we can edit the default network configuration file as follows-
-
-	# virsh net-destroy default
-	# virsh net-edit default
-
-	... change the following section...
-
-  	<ip address='192.168.122.1' netmask='255.255.255.0'>
-    		<dhcp>
-      			<range start='192.168.122.2' end='192.168.122.254' />
-    		</dhcp>
-  	</ip>
-
-	...to this...
-
-  	<ip address='192.168.122.1' netmask='255.255.255.0'>
-    		<dhcp>
-      			<range start='192.168.122.2' end='192.168.122.9' />
-	      		<host mac='52:54:00:00:00:01' name='openstack-controller' ip='192.168.122.101' />
-      			<host mac='52:54:00:00:00:02' name='openstack-compute' ip='192.168.122.102' />
-    		</dhcp>
-  	</ip>
-
-	(Use 'i' to edit and when finished press escape and ':wq!')
-
-Then, to save changes, run:
-
-	# virsh net-start default
-
-For ease of connection to your virtual machine instances, it would be prudent to add the machines to your /etc/hosts file-
-
-	# cat >> /etc/hosts <<EOF
-	192.168.122.101 openstack-controller
-	192.168.122.102 openstack-compute
-	EOF
-
-Finally, start your virtual machines that'll be used in the next lab:
-
+	# rm /var/lib/libvirt/images/openstack-controller-nonsparse.qcow2
 	# virsh start openstack-controller
 	# virsh start openstack-compute
 	
@@ -274,8 +276,9 @@ Make sure that we tell Packstack to configure our second machine as a compute ho
 
 	# sed -i s/CONFIG_NOVA_COMPUTE_HOSTS=.*/CONFIG_NOVA_COMPUTE_HOSTS=192.168.122.101,192.168.122.102/g answers.txt
 	
-Then, execute Packstack with the answer file as a paramater. Note that you'll have to watch the output as it will ask you for root passwords. Before you execute this step it would be prudent to ensure that package repositories are configured correctly on BOTH nodes:
+Then, execute Packstack with the answer file as a paramater. Note that you'll have to watch the output as it will ask you for root passwords. Before you execute this step it would be prudent to ensure that package repositories are configured correctly on BOTH nodes. Also, run this in screen so that you don't accidentally lose your SSH session:
 	
+	# screen
 	# packstack --answer-file=answers.txt
 	
 Once completed, reboot the machines as they'll need to be running a specific OpenStack-enabled kernel:
