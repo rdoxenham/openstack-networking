@@ -407,14 +407,25 @@ on compute:
     integartion_bridge = br_int
     tunnel_bridge = br-tun
     local_ip = 192.168.0.2
+    
+restart services on both boxes;
 
-##**Introduction**
+    service quantum-openvswitch-agent restart
+    service quantum-openvswitch-servce restart
+    
+They should both come up.
+
+-- setup a tenant
 
 #**Lab 6: Creating Networks**
 
+quantum net-create private
+
+quantum subnet-create private 30.0.0.0/24
+
 ##**Introduction**
 
-#**Lab 7: Launching Instances**
+#**Lab 7: Prepare an image**
 
 wget http://satellite.saleslab.fab.redhat.com/pub/repos/cirros-0.3.1-x86_64-disk.img
 
@@ -423,10 +434,6 @@ glance image-create --name "Cirros" --is-public True --disk-format qcow2 --conta
 ##**Introduction**
 
 #**Lab 8: Creating External Networks**
-
-quantum net-create pricate
-
-quantum subnet-create private 30.0.0.0/24
 
 We are now going to boot an instance. You'll need to net ID and the image ID to boot the instance.
 
