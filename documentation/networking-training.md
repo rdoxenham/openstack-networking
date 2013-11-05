@@ -428,10 +428,14 @@ quantum net-create pricate
 
 quantum subnet-create private 30.0.0.0/24
 
-quantum net-list (to get the network id)
-glance image-list (to get the image id)
+We are now going to boot an instance. You'll need to net ID and the image ID to boot the instance.
 
-nova boot --flavor m1.tiny --image f41f218d-a4e3-4521-a168-9817e5eb771d --nic net-id=23c2c066-23fc-455a-bd37-4cc3bbcf35d7 instance1
+    quantum net-list (to get the network id)
+    glance image-list (to get the image id)
+
+Now you have the IDs, boot it: 
+
+    nova boot --flavor m1.tiny --image f41f218d-a4e3-4521-a168-9817e5eb771d --nic net-id=23c2c066-23fc-455a-bd37-4cc3bbcf35d7 instance1
 
 Wait a bit, then;
 
