@@ -390,6 +390,25 @@ This tells us that whilst the Open vSwitch agent runs on both machines, only the
 
 #**Lab 5: Configuring the Open vSwitch Plugin**
 
+vim /etc/quantum/plugin.ini
+
+on controller: 
+    tentant_network_type=gre
+    enable_tunneling = True
+    tunnel_id_ranges = 1:1000
+    integartion_bridge = br_int
+    tunnel_bridge = br-tun
+    local_ip = 192.168.0.1
+
+
+on compute: 
+    tentant_network_type=gre
+    enable_tunneling = True
+    tunnel_id_ranges = 1:1000
+    integartion_bridge = br_int
+    tunnel_bridge = br-tun
+    local_ip = 192.168.0.2
+
 ##**Introduction**
 
 #**Lab 6: Creating Networks**
@@ -398,9 +417,17 @@ This tells us that whilst the Open vSwitch agent runs on both machines, only the
 
 #**Lab 7: Launching Instances**
 
+wget http://satellite.saleslab.fab.redhat.com/pub/repos/cirros-0.3.1-x86_64-disk.img
+
+glance image-create --name "Cirros" --is-public True --disk-format qcow2 --container-format bare --file ./cirros-0.3.1-x86_64-disk.img
+
 ##**Introduction**
 
 #**Lab 8: Creating External Networks**
+
+quantum net-create pricate
+
+quantum subnet-create private 30.0.0.0/24
 
 ##**Introduction**
 
